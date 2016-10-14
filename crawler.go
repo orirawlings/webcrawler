@@ -12,19 +12,26 @@ type Fetcher interface {
 }
 
 type FetchStatus struct {
-	Url, Status string
-	Err         error
+	// The url that was fetched
+	Url string
+	// The HTTP status code recieved when fetching Url
+	Status string
+	// The error produced when fetching the Url
+	Err error
 }
 
 // Crawl uses fetcher to crawl pages starting
 // with url, to a maximum of depth.
 func Crawl(url string, depth int, fetcher Fetcher) <-chan FetchStatus {
-	seen, mux, wg := make(map[string]bool), sync.Mutex{}, sync.WaitGroup{}
+	var wg sync.WaitGroup
+	var mux sync.Mutex
+	seen := make(map[string]bool)
 	out := make(chan FetchStatus)
+
 	var crawl func(url string, depth int)
 	crawl = func(url string, depth int) {
 		defer wg.Done()
-		if depth <= 0 {
+		if depth <= 0 || fetcher == nil {
 			return
 		}
 		status, urls, err := fetcher.Fetch(url)
@@ -64,8 +71,9 @@ func Crawl(url string, depth int, fetcher Fetcher) <-chan FetchStatus {
 }
 
 func main() {
-	statuses := Crawl("http://golang.org/", 4, nil)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+
+	statuses := Crawl("http://golang.org/", 4, nil)
 	for status := range statuses {
 		log.Printf("%v\t%v\t%v\n", status.Url, status.Status, status.Err)
 	}
