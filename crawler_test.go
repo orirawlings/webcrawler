@@ -13,15 +13,15 @@ type fakeFetcher map[string][]string
 
 var ErrNotFound = errors.New("not found")
 
-func (f fakeFetcher) Fetch(url string) (string, []string, error) {
-	if urls, ok := f[url]; ok {
+func (f *fakeFetcher) Fetch(url string) (string, []string, error) {
+	if urls, ok := (*f)[url]; ok {
 		return "200", urls, nil
 	}
 	return "404", nil, ErrNotFound
 }
 
 // fetcher is a populated fakeFetcher.
-var fetcher = fakeFetcher{
+var fetcher = &fakeFetcher{
 	"http://golang.org/": []string{
 		"http://golang.org/pkg/",
 		"http://golang.org/cmd/",
@@ -123,20 +123,19 @@ func TestCrawlFindsMoreUrlsAsDepthIncreases(t *testing.T) {
 }
 
 type trackingFetcher struct {
-	mux    *sync.Mutex
+	mux    sync.Mutex
 	counts map[string]int
-	f      fakeFetcher
+	f      *fakeFetcher
 }
 
-func NewTrackingFetcher(f fakeFetcher) trackingFetcher {
-	return trackingFetcher{
-		mux:    &sync.Mutex{},
+func NewTrackingFetcher(f *fakeFetcher) *trackingFetcher {
+	return &trackingFetcher{
 		counts: make(map[string]int),
 		f:      f,
 	}
 }
 
-func (t trackingFetcher) Fetch(url string) (string, []string, error) {
+func (t *trackingFetcher) Fetch(url string) (string, []string, error) {
 	t.mux.Lock()
 	t.counts[url] = t.counts[url] + 1
 	t.mux.Unlock()
