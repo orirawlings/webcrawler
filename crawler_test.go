@@ -48,57 +48,57 @@ var fetcher = &fakeFetcher{
 }
 
 // The set of urls we expect to find when initiating a crawl at http://golang.org/ to various depths
-var expectedUrls = []map[string]bool{
-	make(map[string]bool),
-	map[string]bool{
-		"http://golang.org/": true,
+var expectedUrls = []map[string]struct{}{
+	make(map[string]struct{}),
+	map[string]struct{}{
+		"http://golang.org/": struct{}{},
 	},
-	map[string]bool{
-		"http://golang.org/":     true,
-		"http://golang.org/pkg/": true,
-		"http://golang.org/cmd/": true,
+	map[string]struct{}{
+		"http://golang.org/":     struct{}{},
+		"http://golang.org/pkg/": struct{}{},
+		"http://golang.org/cmd/": struct{}{},
 	},
-	map[string]bool{
-		"http://golang.org/":         true,
-		"http://golang.org/pkg/":     true,
-		"http://golang.org/cmd/":     true,
-		"http://golang.org/pkg/fmt/": true,
-		"http://golang.org/pkg/os/":  true,
+	map[string]struct{}{
+		"http://golang.org/":         struct{}{},
+		"http://golang.org/pkg/":     struct{}{},
+		"http://golang.org/cmd/":     struct{}{},
+		"http://golang.org/pkg/fmt/": struct{}{},
+		"http://golang.org/pkg/os/":  struct{}{},
 	},
-	map[string]bool{
-		"http://golang.org/":               true,
-		"http://golang.org/pkg/":           true,
-		"http://golang.org/cmd/":           true,
-		"http://golang.org/pkg/fmt/":       true,
-		"http://golang.org/pkg/fmt/string": true,
-		"http://golang.org/about":          true,
-		"http://golang.org/pkg/os/":        true,
-		"http://golang.org/pkg/os/darwin":  true,
-		"http://golang.org/help":           true,
+	map[string]struct{}{
+		"http://golang.org/":               struct{}{},
+		"http://golang.org/pkg/":           struct{}{},
+		"http://golang.org/cmd/":           struct{}{},
+		"http://golang.org/pkg/fmt/":       struct{}{},
+		"http://golang.org/pkg/fmt/string": struct{}{},
+		"http://golang.org/about":          struct{}{},
+		"http://golang.org/pkg/os/":        struct{}{},
+		"http://golang.org/pkg/os/darwin":  struct{}{},
+		"http://golang.org/help":           struct{}{},
 	},
-	map[string]bool{
-		"http://golang.org/":               true,
-		"http://golang.org/pkg/":           true,
-		"http://golang.org/cmd/":           true,
-		"http://golang.org/pkg/fmt/":       true,
-		"http://golang.org/pkg/fmt/string": true,
-		"http://golang.org/about":          true,
-		"http://golang.org/pkg/os/":        true,
-		"http://golang.org/pkg/os/darwin":  true,
-		"http://golang.org/help":           true,
+	map[string]struct{}{
+		"http://golang.org/":               struct{}{},
+		"http://golang.org/pkg/":           struct{}{},
+		"http://golang.org/cmd/":           struct{}{},
+		"http://golang.org/pkg/fmt/":       struct{}{},
+		"http://golang.org/pkg/fmt/string": struct{}{},
+		"http://golang.org/about":          struct{}{},
+		"http://golang.org/pkg/os/":        struct{}{},
+		"http://golang.org/pkg/os/darwin":  struct{}{},
+		"http://golang.org/help":           struct{}{},
 	},
 }
 
 func TestCrawlDoesNotEmitDuplicateUrls(t *testing.T) {
 	d := make(chan struct{})
 	for i := range expectedUrls {
-		seen := make(map[string]bool)
+		seen := make(map[string]struct{})
 		fs := Crawl(d, "http://golang.org/", i, fetcher)
 		for f := range fs {
 			if _, ok := seen[f.Url]; ok {
 				t.Errorf("Saw [%v] more than once during crawl of depth %d", f.Url, i)
 			}
-			seen[f.Url] = true
+			seen[f.Url] = struct{}{}
 		}
 	}
 }
@@ -108,7 +108,7 @@ func TestCrawlFindsMoreUrlsAsDepthIncreases(t *testing.T) {
 	for i, urls := range expectedUrls {
 		fs := Crawl(d, "http://golang.org/", i, fetcher)
 		for f := range fs {
-			if !urls[f.Url] {
+			if _, ok := urls[f.Url]; !ok {
 				t.Errorf("Saw unexpected url [%v] during crawl of depth %d", f.Url, i)
 			}
 			s, _, err := fetcher.Fetch(f.Url)
@@ -184,10 +184,12 @@ func CheckForLeakedGoroutines(t *testing.T, initialNum int) {
 }
 
 func TestCrawlWithEarlyPreemptiveTermination(t *testing.T) {
-	d := make(chan struct{})
 	initial := runtime.NumGoroutine()
-	fs := Crawl(d, "http://golang.org/", 2, fetcher)
-	_ = <-fs // Consume a single status, but leave others unconsumed
-	close(d) // Signal to Crawl that we are giving up on waiting for more FetchStatus
+	for i := range expectedUrls {
+		d := make(chan struct{})
+		fs := Crawl(d, "http://golang.org/", i, fetcher)
+		_ = <-fs // Consume a single status, but leave others unconsumed
+		close(d) // Signal to Crawl that we are giving up on waiting for more FetchStatus
+	}
 	CheckForLeakedGoroutines(t, initial)
 }
