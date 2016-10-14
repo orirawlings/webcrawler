@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/url"
 	"sync"
 )
 
@@ -20,24 +21,33 @@ type FetchStatus struct {
 	Err error
 }
 
+func normalize(parent *url.URL, child string) (string, error) {
+	u, err := parent.Parse(child)
+	if err != nil {
+		return "", err
+	}
+	u.Fragment = "" // normalize URLs by dropping the fragment portion after the '#'
+	return u.String(), nil
+}
+
 // Crawl uses fetcher to crawl pages starting
 // with url, to a maximum of depth.
-func Crawl(done <-chan struct{}, url string, depth int, fetcher Fetcher) <-chan FetchStatus {
+func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan FetchStatus {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	seen := make(map[string]bool)
 	out := make(chan FetchStatus)
 
-	var crawl func(url string, depth int)
-	crawl = func(url string, depth int) {
+	var crawl func(string, int)
+	crawl = func(urlStr string, depth int) {
 		defer wg.Done()
 		if depth <= 0 || fetcher == nil {
 			return
 		}
-		status, urls, err := fetcher.Fetch(url)
+		status, urls, err := fetcher.Fetch(urlStr)
 		fs := FetchStatus{
 			Status: status,
-			Url:    url,
+			Url:    urlStr,
 			Err:    err,
 		}
 		select {
@@ -48,9 +58,17 @@ func Crawl(done <-chan struct{}, url string, depth int, fetcher Fetcher) <-chan 
 		if err != nil {
 			return
 		}
+		parent, err := url.ParseRequestURI(urlStr)
+		if err != nil {
+			return
+		}
 		mux.Lock()
 		defer mux.Unlock()
 		for _, u := range urls {
+			u, err = normalize(parent, u)
+			if err != nil {
+				continue
+			}
 			if _, ok := seen[u]; !ok {
 				seen[u] = true
 				wg.Add(1)
@@ -61,10 +79,10 @@ func Crawl(done <-chan struct{}, url string, depth int, fetcher Fetcher) <-chan 
 
 	// Crawl the initial url
 	mux.Lock()
-	seen[url] = true
+	seen[urlStr] = true
 	mux.Unlock()
 	wg.Add(1)
-	go crawl(url, depth)
+	go crawl(urlStr, depth)
 
 	// Close the output channel once all crawling has terminated
 	go func() {

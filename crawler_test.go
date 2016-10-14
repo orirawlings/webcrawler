@@ -35,10 +35,15 @@ var fetcher = fakeFetcher{
 	"http://golang.org/pkg/fmt/": []string{
 		"http://golang.org/",
 		"http://golang.org/pkg/",
+		"/about#team",
+		"string#value/s",
 	},
 	"http://golang.org/pkg/os/": []string{
 		"http://golang.org/",
 		"http://golang.org/pkg/",
+		"http://golang.org/pkg/#header",
+		"/help",
+		"darwin",
 	},
 }
 
@@ -61,11 +66,26 @@ var expectedUrls = []map[string]bool{
 		"http://golang.org/pkg/os/":  true,
 	},
 	map[string]bool{
-		"http://golang.org/":         true,
-		"http://golang.org/pkg/":     true,
-		"http://golang.org/cmd/":     true,
-		"http://golang.org/pkg/fmt/": true,
-		"http://golang.org/pkg/os/":  true,
+		"http://golang.org/":               true,
+		"http://golang.org/pkg/":           true,
+		"http://golang.org/cmd/":           true,
+		"http://golang.org/pkg/fmt/":       true,
+		"http://golang.org/pkg/fmt/string": true,
+		"http://golang.org/about":          true,
+		"http://golang.org/pkg/os/":        true,
+		"http://golang.org/pkg/os/darwin":  true,
+		"http://golang.org/help":           true,
+	},
+	map[string]bool{
+		"http://golang.org/":               true,
+		"http://golang.org/pkg/":           true,
+		"http://golang.org/cmd/":           true,
+		"http://golang.org/pkg/fmt/":       true,
+		"http://golang.org/pkg/fmt/string": true,
+		"http://golang.org/about":          true,
+		"http://golang.org/pkg/os/":        true,
+		"http://golang.org/pkg/os/darwin":  true,
+		"http://golang.org/help":           true,
 	},
 }
 
@@ -103,13 +123,14 @@ func TestCrawlFindsMoreUrlsAsDepthIncreases(t *testing.T) {
 }
 
 type trackingFetcher struct {
-	mux    sync.Mutex
+	mux    *sync.Mutex
 	counts map[string]int
 	f      fakeFetcher
 }
 
 func NewTrackingFetcher(f fakeFetcher) trackingFetcher {
 	return trackingFetcher{
+		mux:    &sync.Mutex{},
 		counts: make(map[string]int),
 		f:      f,
 	}
