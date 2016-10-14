@@ -100,7 +100,7 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
 	done := make(chan struct{})
-	statuses := Crawl(done, "http://golang.org/", 4, nil)
+	statuses := Crawl(done, "http://golang.org/", 4, NewHttpFetch())
 	for status := range statuses {
 		log.Printf("%v\t%v\t%v\n", status.Url, status.Status, status.Err)
 	}
