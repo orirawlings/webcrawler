@@ -22,7 +22,7 @@ type FetchStatus struct {
 
 // Crawl uses fetcher to crawl pages starting
 // with url, to a maximum of depth.
-func Crawl(url string, depth int, fetcher Fetcher) <-chan FetchStatus {
+func Crawl(done <-chan struct{}, url string, depth int, fetcher Fetcher) <-chan FetchStatus {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	seen := make(map[string]bool)
@@ -40,7 +40,11 @@ func Crawl(url string, depth int, fetcher Fetcher) <-chan FetchStatus {
 			Url:    url,
 			Err:    err,
 		}
-		out <- fs
+		select {
+		case out <- fs:
+		case <-done:
+			return
+		}
 		if err != nil {
 			return
 		}
@@ -73,7 +77,8 @@ func Crawl(url string, depth int, fetcher Fetcher) <-chan FetchStatus {
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
-	statuses := Crawl("http://golang.org/", 4, nil)
+	done := make(chan struct{})
+	statuses := Crawl(done, "http://golang.org/", 4, nil)
 	for status := range statuses {
 		log.Printf("%v\t%v\t%v\n", status.Url, status.Status, status.Err)
 	}
