@@ -21,6 +21,9 @@ type FetchStatus struct {
 	Err error
 }
 
+// Resolve a potentially relative child URL string against a
+// parent URL. Ensure resolved URL does not include a fragment
+// portion (ie. the part after a '#')
 func normalize(parent *url.URL, child string) (string, error) {
 	u, err := parent.Parse(child)
 	if err != nil {
@@ -31,12 +34,13 @@ func normalize(parent *url.URL, child string) (string, error) {
 }
 
 // Crawl uses fetcher to crawl pages starting
-// with url, to a maximum of depth.
-func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan FetchStatus {
+// with url, to a maximum of depth. To preemptively
+// terminate crawling, close channel 'done'.
+func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan *FetchStatus {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	seen := make(map[string]bool)
-	out := make(chan FetchStatus)
+	out := make(chan *FetchStatus)
 
 	var crawl func(string, int)
 	crawl = func(urlStr string, depth int) {
@@ -45,7 +49,7 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 			return
 		}
 		status, urls, err := fetcher.Fetch(urlStr)
-		fs := FetchStatus{
+		fs := &FetchStatus{
 			Status: status,
 			Url:    urlStr,
 			Err:    err,
