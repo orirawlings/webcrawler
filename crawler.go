@@ -6,12 +6,6 @@ import (
 	"sync"
 )
 
-type Fetcher interface {
-	// Fetch returns the response status of URL and
-	// a slice of URLs found on that page.
-	Fetch(url string) (status string, urls []string, err error)
-}
-
 type FetchStatus struct {
 	// The url that was fetched
 	Url string
@@ -19,18 +13,6 @@ type FetchStatus struct {
 	Status string
 	// The error produced when fetching the Url
 	Err error
-}
-
-// Resolve a potentially relative child URL string against a
-// parent URL. Ensure resolved URL does not include a fragment
-// portion (ie. the part after a '#')
-func normalize(parent *url.URL, child string) (string, error) {
-	u, err := parent.Parse(child)
-	if err != nil {
-		return "", err
-	}
-	u.Fragment = "" // normalize URLs by dropping the fragment portion after the '#'
-	return u.String(), nil
 }
 
 // Crawl uses fetcher to crawl pages starting
@@ -69,7 +51,7 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 		mux.Lock()
 		defer mux.Unlock()
 		for _, u := range urls {
-			u, err = normalize(parent, u)
+			u, err = resolve(parent, u)
 			if err != nil {
 				continue
 			}
