@@ -6,23 +6,23 @@ import (
 	"sync"
 )
 
-type FetchStatus struct {
-	// The url that was fetched
+type CrawlStatus struct {
+	// The url that was crawled
 	Url string
-	// The HTTP status code recieved when fetching Url
+	// The HTTP status code recieved when crawling Url
 	Status string
-	// The error produced when fetching the Url
+	// The error produced when crawling the Url
 	Err error
 }
 
 // Crawl uses fetcher to crawl pages starting
 // with url, to a maximum of depth. To preemptively
 // terminate crawling, close channel 'done'.
-func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan *FetchStatus {
+func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan *CrawlStatus {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 	seen := make(map[string]bool)
-	out := make(chan *FetchStatus)
+	out := make(chan *CrawlStatus)
 
 	var crawl func(string, int)
 	crawl = func(urlStr string, depth int) {
@@ -31,7 +31,7 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 			return
 		}
 		status, urls, err := fetcher.Fetch(urlStr)
-		fs := &FetchStatus{
+		fs := &CrawlStatus{
 			Status: status,
 			Url:    urlStr,
 			Err:    err,

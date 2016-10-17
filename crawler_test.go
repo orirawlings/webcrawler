@@ -89,7 +89,7 @@ var expectedUrls = []map[string]struct{}{
 	},
 }
 
-func TestCrawlDoesNotEmitDuplicateUrls(t *testing.T) {
+func TestCrawlDoesNotEmitDuplicateUrlsMoreThanOnce(t *testing.T) {
 	d := make(chan struct{})
 	for i := range expectedUrls {
 		seen := make(map[string]struct{})
@@ -142,17 +142,17 @@ func (t *trackingFetcher) Fetch(url string) (string, []string, error) {
 	return t.f.Fetch(url)
 }
 
-func TestCrawlDoesNotFetchDuplicateUrls(t *testing.T) {
+func TestDoNotCrawlDuplicateUrlsMoreThanOnce(t *testing.T) {
 	d := make(chan struct{})
 	for i := range expectedUrls {
 		tf := NewTrackingFetcher(fetcher)
 		fs := Crawl(d, "http://golang.org/", i, tf)
 		for _ = range fs {
-			// consume the channel until close to allow all fetching to complete
+			// consume the channel until close to allow all crawling to complete
 		}
 		for url, c := range tf.counts {
 			if c > 1 {
-				t.Errorf("Fetched [%v] more than once ([%d] times) during crawl of depth %d", url, c, i)
+				t.Errorf("Crawled [%v] more than once ([%d] times) during crawl of depth %d", url, c, i)
 			}
 		}
 	}
@@ -163,7 +163,7 @@ func TestCrawlNilFetcher(t *testing.T) {
 	for i := range expectedUrls {
 		fs := Crawl(d, "http://golang.org/", i, nil)
 		for f := range fs {
-			t.Errorf("Unexpected FetchStatus for url [%v] received when using nil Fetcher at crawl depth [%d]", f.Url, i)
+			t.Errorf("Unexpected CrawlStatus for url [%v] received when using nil Fetcher at crawl depth [%d]", f.Url, i)
 		}
 	}
 }
@@ -189,7 +189,7 @@ func TestCrawlWithEarlyPreemptiveTermination(t *testing.T) {
 		d := make(chan struct{})
 		fs := Crawl(d, "http://golang.org/", i, fetcher)
 		_ = <-fs // Consume a single status, but leave others unconsumed
-		close(d) // Signal to Crawl that we are giving up on waiting for more FetchStatus
+		close(d) // Signal to Crawl that we are giving up on waiting for more CrawlStatus
 	}
 	CheckForLeakedGoroutines(t, initial)
 }
