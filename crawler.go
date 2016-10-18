@@ -89,6 +89,11 @@ func main() {
 	done := make(chan struct{})
 	statuses := Crawl(done, start, depth, NewHttpFetch())
 	for status := range statuses {
-		log.Printf("%v\t%v\t%v\n", status.Url, status.Status, status.Err)
+		if status.Err != nil {
+			log.Printf("%v\t%v\t%v\n", status.Status, status.Url, status.Err)
+		} else {
+			log.Printf("%v\t%v\n", status.Status, status.Url)
+		}
+
 	}
 }
