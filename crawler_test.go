@@ -35,15 +35,10 @@ var fetcher = &fakeFetcher{
 	"http://golang.org/pkg/fmt/": []string{
 		"http://golang.org/",
 		"http://golang.org/pkg/",
-		"/about#team",
-		"string#value/s",
 	},
 	"http://golang.org/pkg/os/": []string{
 		"http://golang.org/",
 		"http://golang.org/pkg/",
-		"http://golang.org/pkg/#header",
-		"/help",
-		"darwin",
 	},
 }
 
@@ -66,59 +61,65 @@ var expectedUrls = []map[string]struct{}{
 		"http://golang.org/pkg/os/":  struct{}{},
 	},
 	map[string]struct{}{
-		"http://golang.org/":               struct{}{},
-		"http://golang.org/pkg/":           struct{}{},
-		"http://golang.org/cmd/":           struct{}{},
-		"http://golang.org/pkg/fmt/":       struct{}{},
-		"http://golang.org/pkg/fmt/string": struct{}{},
-		"http://golang.org/about":          struct{}{},
-		"http://golang.org/pkg/os/":        struct{}{},
-		"http://golang.org/pkg/os/darwin":  struct{}{},
-		"http://golang.org/help":           struct{}{},
-	},
-	map[string]struct{}{
-		"http://golang.org/":               struct{}{},
-		"http://golang.org/pkg/":           struct{}{},
-		"http://golang.org/cmd/":           struct{}{},
-		"http://golang.org/pkg/fmt/":       struct{}{},
-		"http://golang.org/pkg/fmt/string": struct{}{},
-		"http://golang.org/about":          struct{}{},
-		"http://golang.org/pkg/os/":        struct{}{},
-		"http://golang.org/pkg/os/darwin":  struct{}{},
-		"http://golang.org/help":           struct{}{},
+		"http://golang.org/":         struct{}{},
+		"http://golang.org/pkg/":     struct{}{},
+		"http://golang.org/cmd/":     struct{}{},
+		"http://golang.org/pkg/fmt/": struct{}{},
+		"http://golang.org/pkg/os/":  struct{}{},
 	},
 }
 
-func TestCrawlDoesNotEmitDuplicateUrlsMoreThanOnce(t *testing.T) {
-	d := make(chan struct{})
-	for i := range expectedUrls {
-		seen := make(map[string]struct{})
-		fs := Crawl(d, "http://golang.org/", i, fetcher)
-		for f := range fs {
-			if _, ok := seen[f.Url]; ok {
-				t.Errorf("Saw [%v] more than once during crawl of depth %d", f.Url, i)
-			}
-			seen[f.Url] = struct{}{}
+type CrawlChecker struct {
+	Depth int
+	Seen  map[string]bool
+}
+
+func NewCrawlChecker(depth int, expectedUrls map[string]struct{}) *CrawlChecker {
+	seen := make(map[string]bool, len(expectedUrls))
+	for url, _ := range expectedUrls {
+		seen[url] = false
+	}
+	return &CrawlChecker{
+		Depth: depth,
+		Seen:  seen,
+	}
+}
+
+func (c *CrawlChecker) Check(t *testing.T, cs *CrawlStatus) {
+	seen, ok := c.Seen[cs.Url]
+	if seen {
+		t.Errorf("Saw [%v] more than once during crawl of depth %d", cs.Url, c.Depth)
+	}
+	if !ok {
+		t.Errorf("Saw unexpected url [%v] during crawl of depth %d", cs.Url, c.Depth)
+	}
+	c.Seen[cs.Url] = true
+	s, _, err := fetcher.Fetch(cs.Url)
+	if s != cs.Status {
+		t.Errorf("Expected Status [%v] for url [%v], saw [%v] during crawl of depth %d", s, cs.Url, cs.Status, c.Depth)
+	}
+	if err != cs.Err {
+		t.Errorf("Expected Err [%v] for url [%v], saw [%v] during crawl of depth %d", err, cs.Url, cs.Err, c.Depth)
+	}
+}
+
+func (c *CrawlChecker) CheckNoUrlsMissed(t *testing.T) {
+	for url, seen := range c.Seen {
+		if !seen {
+			t.Errorf("Expected to crawl [%s], but was not, during crawl of depth %d", url, c.Depth)
 		}
 	}
 }
 
-func TestCrawlFindsMoreUrlsAsDepthIncreases(t *testing.T) {
+func TestCrawlExpectedUrlsAsDepthIncreases(t *testing.T) {
 	d := make(chan struct{})
 	for i, urls := range expectedUrls {
-		fs := Crawl(d, "http://golang.org/", i, fetcher)
-		for f := range fs {
-			if _, ok := urls[f.Url]; !ok {
-				t.Errorf("Saw unexpected url [%v] during crawl of depth %d", f.Url, i)
-			}
-			s, _, err := fetcher.Fetch(f.Url)
-			if s != f.Status {
-				t.Errorf("Expected Status [%v] for url [%v], saw [%v]", s, f.Url, f.Status)
-			}
-			if err != f.Err {
-				t.Errorf("Expected Err [%v] for url [%v], saw [%v]", err, f.Url, f.Err)
-			}
+		c := NewCrawlChecker(i, urls)
+		cs := Crawl(d, "http://golang.org/", i, fetcher)
+		for status := range cs {
+			c.Check(t, status)
 		}
+		c.CheckNoUrlsMissed(t)
 	}
 }
 
@@ -183,7 +184,7 @@ func CheckForLeakedGoroutines(t *testing.T, initialNum int) {
 	}
 }
 
-func TestCrawlWithEarlyPreemptiveTermination(t *testing.T) {
+func TestCrawlWithPreemptiveTermination(t *testing.T) {
 	initial := runtime.NumGoroutine()
 	for i := range expectedUrls {
 		d := make(chan struct{})

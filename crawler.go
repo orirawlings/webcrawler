@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/url"
 	"sync"
 )
 
@@ -44,17 +43,9 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 		if err != nil {
 			return
 		}
-		parent, err := url.ParseRequestURI(urlStr)
-		if err != nil {
-			return
-		}
 		mux.Lock()
 		defer mux.Unlock()
 		for _, u := range urls {
-			u, err = resolve(parent, u)
-			if err != nil {
-				continue
-			}
 			if _, ok := seen[u]; !ok {
 				seen[u] = true
 				wg.Add(1)
@@ -82,7 +73,7 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
 	done := make(chan struct{})
-	statuses := Crawl(done, "http://golang.org/", 4, NewHttpFetch())
+	statuses := Crawl(done, "http://golang.org/", 2, NewHttpFetch())
 	for status := range statuses {
 		log.Printf("%v\t%v\t%v\n", status.Url, status.Status, status.Err)
 	}
