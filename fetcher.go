@@ -15,12 +15,10 @@ type Fetcher interface {
 	Fetch(url string) (status string, urls []string, err error)
 }
 
-type Client interface {
-	Get(url string) (r *http.Response, err error)
-}
-
 type Fetch struct {
-	Client Client
+	Client interface {
+		Get(url string) (r *http.Response, err error)
+	}
 }
 
 func NewFetch() *Fetch {
