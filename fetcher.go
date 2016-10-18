@@ -14,6 +14,30 @@ type Fetcher interface {
 	Fetch(url string) (status string, urls []string, err error)
 }
 
+type HttpFetch struct {
+	Client *http.Client
+}
+
+func NewHttpFetch() *HttpFetch {
+	return &HttpFetch{
+		Client: &http.Client{},
+	}
+}
+
+func (hf *HttpFetch) Fetch(urlStr string) (string, []string, error) {
+	res, err := hf.Client.Get(urlStr)
+	if err != nil {
+		return "", nil, err
+	}
+	defer res.Body.Close()
+	parent, err := url.Parse(urlStr)
+	if err != nil {
+		return res.Status, nil, err
+	}
+	urls, err := ParseLinks(res.Body, parent)
+	return res.Status, urls, err
+}
+
 func atAnchorTag(z *html.Tokenizer) bool {
 	tag, hasAttr := z.TagName()
 	return string(tag) == "a" && hasAttr
@@ -69,28 +93,4 @@ func ParseLinks(r io.Reader, parent *url.URL) ([]string, error) {
 			}
 		}
 	}
-}
-
-type HttpFetch struct {
-	Client *http.Client
-}
-
-func NewHttpFetch() *HttpFetch {
-	return &HttpFetch{
-		Client: &http.Client{},
-	}
-}
-
-func (hf *HttpFetch) Fetch(urlStr string) (string, []string, error) {
-	res, err := hf.Client.Get(urlStr)
-	if err != nil {
-		return "", nil, err
-	}
-	defer res.Body.Close()
-	parent, err := url.Parse(urlStr)
-	if err != nil {
-		return res.Status, nil, err
-	}
-	urls, err := ParseLinks(res.Body, parent)
-	return res.Status, urls, err
 }
