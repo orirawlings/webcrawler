@@ -1,7 +1,9 @@
 package main
 
 import (
-	"io/ioutil"
+	"errors"
+	"golang.org/x/net/html"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -12,27 +14,25 @@ type Fetcher interface {
 	Fetch(url string) (status string, urls []string, err error)
 }
 
-type HttpFetch struct {
-	Client *http.Client
+func atAnchorTag(z *html.Tokenizer) bool {
+	tag, hasAttr := z.TagName()
+	return string(tag) == "a" && hasAttr
 }
 
-func NewHttpFetch() *HttpFetch {
-	return &HttpFetch{
-		Client: &http.Client{},
-	}
-}
+var HrefNotFound = errors.New("href attribute not found for <a> tag")
 
-func (hf *HttpFetch) Fetch(url string) (string, []string, error) {
-	res, err := hf.Client.Get(url)
-	if err != nil {
-		return "", nil, err
+func resolveAnchorHref(z *html.Tokenizer, parent *url.URL) (string, error) {
+	key, value, more := z.TagAttr()
+	for {
+		if string(key) == "href" {
+			return resolve(parent, string(value))
+		}
+		if !more {
+			break
+		}
+		key, value, more = z.TagAttr()
 	}
-	_, err = ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		return res.Status, nil, err
-	}
-	return res.Status, nil, err
+	return "", HrefNotFound
 }
 
 // Resolve a potentially relative child URL string against a
@@ -45,4 +45,52 @@ func resolve(parent *url.URL, child string) (string, error) {
 	}
 	u.Fragment = "" // normalize URLs by dropping the fragment portion after the '#'
 	return u.String(), nil
+}
+
+// Parse HTML response and return all the urls linked from this
+// response within <a> tags
+func ParseLinks(r io.Reader, parent *url.URL) ([]string, error) {
+	z := html.NewTokenizer(r)
+	result := make([]string, 0)
+	for {
+		t := z.Next()
+		switch t {
+		case html.ErrorToken:
+			if err := z.Err(); err != io.EOF {
+				return result, err
+			}
+			return result, nil
+		case html.StartTagToken, html.SelfClosingTagToken:
+			if atAnchorTag(z) {
+				url, err := resolveAnchorHref(z, parent)
+				if err == nil {
+					result = append(result, url)
+				}
+			}
+		}
+	}
+}
+
+type HttpFetch struct {
+	Client *http.Client
+}
+
+func NewHttpFetch() *HttpFetch {
+	return &HttpFetch{
+		Client: &http.Client{},
+	}
+}
+
+func (hf *HttpFetch) Fetch(urlStr string) (string, []string, error) {
+	res, err := hf.Client.Get(urlStr)
+	if err != nil {
+		return "", nil, err
+	}
+	defer res.Body.Close()
+	parent, err := url.Parse(urlStr)
+	if err != nil {
+		return res.Status, nil, err
+	}
+	urls, err := ParseLinks(res.Body, parent)
+	return res.Status, urls, err
 }
