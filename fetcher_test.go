@@ -81,7 +81,7 @@ var expected = map[string]struct {
 }
 
 func TestFetch(t *testing.T) {
-	f := &HttpFetch{Client: client}
+	f := &Fetch{Client: client}
 	for url, exp := range expected {
 		s, us, err := f.Fetch(url)
 		if s != exp.status {

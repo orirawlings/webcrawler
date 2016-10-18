@@ -19,17 +19,17 @@ type Client interface {
 	Get(url string) (r *http.Response, err error)
 }
 
-type HttpFetch struct {
+type Fetch struct {
 	Client Client
 }
 
-func NewHttpFetch() *HttpFetch {
-	return &HttpFetch{
+func NewFetch() *Fetch {
+	return &Fetch{
 		Client: &http.Client{},
 	}
 }
 
-func (hf *HttpFetch) Fetch(urlStr string) (string, []string, error) {
+func (hf *Fetch) Fetch(urlStr string) (string, []string, error) {
 	res, err := hf.Client.Get(urlStr)
 	if err != nil {
 		return "", nil, err
