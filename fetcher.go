@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type Fetcher interface {
@@ -14,8 +15,12 @@ type Fetcher interface {
 	Fetch(url string) (status string, urls []string, err error)
 }
 
+type Client interface {
+	Get(url string) (r *http.Response, err error)
+}
+
 type HttpFetch struct {
-	Client *http.Client
+	Client Client
 }
 
 func NewHttpFetch() *HttpFetch {
@@ -49,7 +54,8 @@ func resolveAnchorHref(z *html.Tokenizer, parent *url.URL) (string, error) {
 	key, value, more := z.TagAttr()
 	for {
 		if string(key) == "href" {
-			return resolve(parent, string(value))
+			href := strings.TrimSpace(string(value))
+			return resolve(parent, href)
 		}
 		if !more {
 			break
