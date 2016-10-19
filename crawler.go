@@ -2,6 +2,7 @@ package main
 
 import "sync"
 
+// Emitted status for each URL that is crawled
 type CrawlStatus struct {
 	// The url that was crawled
 	Url string

@@ -15,12 +15,16 @@ type Fetcher interface {
 	Fetch(url string) (status string, urls []string, err error)
 }
 
+// A Fetcher implementation that leverages an underlying
+// HTTP client
 type Fetch struct {
 	Client interface {
 		Get(url string) (r *http.Response, err error)
 	}
 }
 
+// Construct a new Fetch instance with a standard HTTP
+// client implementation
 func NewFetch() *Fetch {
 	return &Fetch{
 		Client: &http.Client{},
@@ -41,11 +45,15 @@ func (hf *Fetch) Fetch(urlStr string) (string, []string, error) {
 	return res.Status, urls, err
 }
 
+// Return true if the Tokenizer is currently positioned at
+// an anchor (ie. <a>) tag
 func atAnchorTag(z *html.Tokenizer) bool {
 	tag, hasAttr := z.TagName()
 	return string(tag) == "a" && hasAttr
 }
 
+// Error used when a parsed anchor tag does not have a href
+// attribute
 var HrefNotFound = errors.New("href attribute not found for <a> tag")
 
 func resolveAnchorHref(z *html.Tokenizer, parent *url.URL) (string, error) {
