@@ -23,7 +23,7 @@ type CrawlStatus struct {
 func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-chan *CrawlStatus {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	out := make(chan *CrawlStatus)
 
 	var crawl func(string, int)
@@ -50,7 +50,7 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 		defer mux.Unlock()
 		for _, u := range urls {
 			if _, ok := seen[u]; !ok {
-				seen[u] = true
+				seen[u] = struct{}{}
 				wg.Add(1)
 				go crawl(u, depth-1)
 			}
@@ -59,7 +59,7 @@ func Crawl(done <-chan struct{}, urlStr string, depth int, fetcher Fetcher) <-ch
 
 	// Crawl the initial url
 	mux.Lock()
-	seen[urlStr] = true
+	seen[urlStr] = struct{}{}
 	mux.Unlock()
 	wg.Add(1)
 	go crawl(urlStr, depth)
