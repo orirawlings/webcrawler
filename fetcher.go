@@ -23,8 +23,8 @@ type Fetch struct {
 	}
 }
 
-// Construct a new Fetch instance with a standard HTTP
-// client implementation
+// Create a new Fetch struct with the standard HTTP
+// client and return a pointer to the struct
 func NewFetch() *Fetch {
 	return &Fetch{
 		Client: &http.Client{},
