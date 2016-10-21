@@ -24,6 +24,7 @@ import (
 // Parse command line arguments. Returns the inital root URL and the
 // maximum depth of the crawl.
 func parseArgs() (startUrl string, depth int) {
+	// Override the default help usage message
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [-h] [options] URL\n", os.Args[0])
 		flag.PrintDefaults()
@@ -38,6 +39,7 @@ func parseArgs() (startUrl string, depth int) {
 }
 
 func main() {
+	// Set logging time format
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
 	start, depth := parseArgs()
